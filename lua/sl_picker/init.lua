@@ -5,13 +5,18 @@ local actions = require('telescope.actions')
 local action_state = require('telescope.actions.state')
 local previewers = require('telescope.previewers')
 
+-- base of the current stack: the most recent public ancestor of `.`.
+-- if there are no draft commits in the stack this resolves to `.` itself,
+-- so `sl status --rev STACK_BASE` degrades to plain `sl status`.
+local STACK_BASE = 'max(public() & ::.)'
+
 local function sl_root()
 	local r = vim.fn.systemlist('sl root')[1]
 	return (vim.v.shell_error == 0) and r or nil
 end
 
 local function sl_status_entries()
-	local lines = vim.fn.systemlist('sl status -mardu')
+	local lines = vim.fn.systemlist({ 'sl', 'status', '-mardu', '--rev', STACK_BASE })
 	if vim.v.shell_error ~= 0 then
 		return {}
 	end
@@ -48,7 +53,7 @@ local function sl_changed(opts)
 
 	pickers
 		.new(opts, {
-			prompt_title = 'sl changed',
+			prompt_title = 'sl stack',
 			finder = finders.new_table({
 				results = entries,
 				entry_maker = function(e)
@@ -75,7 +80,7 @@ local function sl_changed(opts)
 					if entry.value.status == '?' then
 						return { 'bat', '--color=always', '--style=plain', entry.path }
 					end
-					return { 'sl', 'diff', '--color=always', entry.path }
+					return { 'sl', 'diff', '--color=always', '--rev', STACK_BASE, entry.path }
 				end,
 			}),
 			attach_mappings = function(_, map)
