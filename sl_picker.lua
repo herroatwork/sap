@@ -1,0 +1,91 @@
+-- ~/.config/nvim/lua/sl_picker.lua
+
+local pickers = require('telescope.pickers')
+local finders = require('telescope.finders')
+local conf = require('telescope.config').values
+local actions = require('telescope.actions')
+local action_state = require('telescope.actions.state')
+local previewers = require('telescope.previewers')
+
+local function sl_root()
+	local r = vim.fn.systemlist('sl root')[1]
+	return (vim.v.shell_error == 0) and r or nil
+end
+
+local function sl_status_entries()
+	local lines = vim.fn.systemlist('sl status -mardu')
+	if vim.v.shell_error ~= 0 then return {} end
+	local root = sl_root()
+	local out = {}
+	for _, line in ipairs(lines) do
+		local st, path = line:match('^(%S)%s+(.+)$')
+		if path then
+			table.insert(out, {
+				status = st,
+				path = path,
+				abs = root and (root .. '/' .. path) or path,
+			})
+		end
+	end
+	return out
+end
+
+local sign_map = {
+	M     = { '~', 'DiffChange', 'mod' },
+	A     = { '+', 'DiffAdd', 'add' },
+	R     = { '-', 'DiffDelete', 'del' },
+	['!'] = { '-', 'DiffDelete', 'del' },
+	['?'] = { '?', 'Comment', 'new' },
+}
+
+local function sl_changed(opts)
+	opts = opts or {}
+	local entries = sl_status_entries()
+	if #entries == 0 then
+		vim.notify('no sapling changes', vim.log.levels.INFO)
+		return
+	end
+
+	pickers.new(opts, {
+		prompt_title = 'sl changed',
+		finder = finders.new_table({
+			results = entries,
+			entry_maker = function(e)
+				local sign, hl, word = unpack(sign_map[e.status] or { ' ', 'Normal', '   ' })
+				local display = function()
+					local text = string.format(' %s  %-60s  %s', sign, e.path, word)
+					local path_end = 4 + 60
+					return text, {
+						{ { 1, 2 },            hl },
+						{ { path_end, #text }, hl },
+					}
+				end
+				return {
+					value = e,
+					ordinal = e.path,
+					display = display,
+					path = e.abs,
+				}
+			end,
+		}),
+		sorter = conf.generic_sorter(opts),
+		previewer = previewers.new_termopen_previewer({
+			get_command = function(entry)
+				if entry.value.status == '?' then
+					return { 'bat', '--color=always', '--style=plain', entry.path }
+				end
+				return { 'sl', 'diff', '--color=always', entry.path }
+			end,
+		}),
+		attach_mappings = function(_, map)
+			actions.select_default:replace(function(bufnr)
+				local sel = action_state.get_selected_entry()
+				actions.close(bufnr)
+				vim.cmd('edit ' .. vim.fn.fnameescape(sel.path))
+			end)
+			return true
+		end,
+	}):find()
+end
+
+return { sl_changed = sl_changed }
