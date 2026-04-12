@@ -103,6 +103,41 @@
     a:hover { color: #555; }
 
     /* code block */
+    .code-wrap {
+      position: relative;
+    }
+
+    .code-wrap button {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: none;
+      border: 1px solid #bbb5ae;
+      color: #666;
+      font-family: inherit;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      width: 5em;
+      text-align: center;
+    }
+
+    .code-wrap button:hover {
+      color: #1a1a1a;
+      border-color: #1a1a1a;
+    }
+
+    @keyframes flash {
+      0%, 33%, 67%    { background: #479fb2; border-color: #479fb2; }
+      17%, 50%, 100%  { background: none; border-color: #bbb5ae; }
+    }
+
+    .code-wrap button.copied {
+      animation: flash 0.5s steps(1);
+    }
+
     pre {
       font-family: inherit;
       white-space: pre;
@@ -144,8 +179,7 @@
           </p>
           <p>
             Lists every file touched between the base of your stack and your
-            working copy &mdash; committed and uncommitted &mdash; so you can jump
-            back to anything you've been working on.
+            working copy, so you can jump back to anything you've been working on.
           </p>
         </div>
       </div>
@@ -175,7 +209,13 @@
       <div class="section">
         <div class="section-label">Install</div>
         <div class="section-body">
-          <pre>{
+          <div class="row" style="margin-bottom: 0.35rem;">
+            <span class="row-key">manager</span>
+            <span class="row-val"><a href="https://github.com/folke/lazy.nvim">lazy.nvim</a></span>
+          </div>
+          <div class="code-wrap">
+            <button onclick="copyCode(this)">Copy</button>
+            <pre>{
   'kevherro/sap',
   dependencies = { 'nvim-telescope/telescope.nvim' },
   config = function()
@@ -185,6 +225,7 @@
     { '&lt;leader&gt;fc', '&lt;cmd&gt;Telescope sap&lt;cr&gt;' },
   },
 }</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -195,5 +236,15 @@
     </div>
   </div>
 
+<script>
+function copyCode(btn) {
+  var text = btn.parentElement.querySelector('pre').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 500);
+  });
+}
+</script>
 </body>
 </html>
