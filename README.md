@@ -40,7 +40,14 @@ sl status -mardu --rev 'max(public() & ::.)'
 
 which lists every file that differs between the base of your stack (the most recent public ancestor of `.`) and your working copy — so files you committed earlier in the stack show up alongside uncommitted edits. If your stack is empty the revset resolves to `.` and you get plain `sl status` behavior.
 
-Each entry is shown with a status sign:
+Each entry is shown with a status sign and the directory dimmed:
+
+```
+~ lua/sl_picker/init.lua
++ lua/new_file.lua
+- old_stuff.lua
+? scratch.txt
+```
 
 | Sign | Meaning     |
 | ---- | ----------- |

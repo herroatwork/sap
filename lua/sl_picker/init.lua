@@ -36,11 +36,11 @@ local function sl_status_entries()
 end
 
 local sign_map = {
-	M = { '~', 'DiffChange', 'mod' },
-	A = { '+', 'DiffAdd', 'add' },
-	R = { '-', 'DiffDelete', 'del' },
-	['!'] = { '-', 'DiffDelete', 'del' },
-	['?'] = { '?', 'Comment', 'new' },
+	M = { '~', 'DiffChange' },
+	A = { '+', 'DiffAdd' },
+	R = { '-', 'DiffDelete' },
+	['!'] = { '-', 'DiffDelete' },
+	['?'] = { '?', 'Comment' },
 }
 
 local function sl_changed(opts)
@@ -57,14 +57,18 @@ local function sl_changed(opts)
 			finder = finders.new_table({
 				results = entries,
 				entry_maker = function(e)
-					local sign, hl, word = unpack(sign_map[e.status] or { ' ', 'Normal', '   ' })
+					local sign, hl = unpack(sign_map[e.status] or { ' ', 'Normal' })
+					local dir, file = e.path:match('^(.+/)([^/]+)$')
 					local display = function()
-						local text = string.format(' %s  %-60s  %s', sign, e.path, word)
-						local path_end = 4 + 60
-						return text, {
-							{ { 1, 2 }, hl },
-							{ { path_end, #text }, hl },
-						}
+						local text
+						local highlights = { { { 1, 2 }, hl } }
+						if dir then
+							text = string.format(' %s %s%s', sign, dir, file)
+							table.insert(highlights, { { 3, 3 + #dir }, 'Comment' })
+						else
+							text = string.format(' %s %s', sign, e.path)
+						end
+						return text, highlights
 					end
 					return {
 						value = e,
