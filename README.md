@@ -1,4 +1,4 @@
-# sl_picker
+# sap
 
 A [Telescope](https://github.com/nvim-telescope/telescope.nvim) picker for the
 files in your current [Sapling](https://sapling-scm.com/) stack.
@@ -15,31 +15,31 @@ been working on in this branch.
 
 ## Installation
 
-`sl_picker` is a [telescope extension](https://github.com/nvim-telescope/telescope.nvim#extensions).
+`sap` is a [telescope extension](https://github.com/nvim-telescope/telescope.nvim#extensions).
 With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  'kevherro/sl_picker',
+  'kevherro/sap',
   dependencies = { 'nvim-telescope/telescope.nvim' },
   config = function()
-    require('telescope').load_extension('sl_picker')
+    require('telescope').load_extension('sap')
   end,
   keys = {
-    { '<leader>fc', '<cmd>Telescope sl_picker<cr>', desc = 'sl stack' },
+    { '<leader>fc', '<cmd>Telescope sap<cr>', desc = 'sl stack' },
   },
 }
 ```
 
 The `keys` entry triggers lazy.nvim to load the plugin, `config` runs and
-registers the extension with telescope, and then the `<cmd>Telescope sl_picker<cr>`
+registers the extension with telescope, and then the `<cmd>Telescope sap<cr>`
 invocation fires — so cold-start works without any eager loading.
 
 ## Usage
 
-Run `:Telescope sl_picker` (or `:Telescope sl_picker stack`) to open the picker.
+Run `:Telescope sap` (or `:Telescope sap stack`) to open the picker.
 If you prefer to bypass the extension layer you can also call
-`require('sl_picker').sl_changed()` directly — both paths invoke the same function.
+`require('sap').sl_changed()` directly — both paths invoke the same function.
 
 Under the hood the picker runs
 
@@ -55,7 +55,7 @@ If your stack is empty the revset resolves to `.` and you get plain `sl status` 
 Each entry is shown with a status sign and the directory dimmed:
 
 ```
-~ lua/sl_picker/init.lua
+~ lua/sap/init.lua
 + lua/new_file.lua
 - old_stuff.lua
 ? scratch.txt

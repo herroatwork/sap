@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sap</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #e8e4df;
+      color: #1a1a1a;
+      font-family: 'Berkeley Mono', 'SF Mono', ui-monospace, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* header */
+    .header {
+      text-align: center;
+      padding-bottom: 1rem;
+    }
+
+    .header h1 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+    }
+
+    .header .sub {
+      margin-top: 0.4rem;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .header .sub a {
+      color: #666;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .header .sub a:hover { color: #1a1a1a; }
+
+    /* single bordered container */
+    .card {
+      border: 1px solid #1a1a1a;
+      margin-top: 1rem;
+    }
+
+    .section + .section {
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.5rem 0.75rem 0.25rem;
+      color: #1a1a1a;
+    }
+
+    .section-body {
+      padding: 0.5rem 0.75rem 0.75rem;
+    }
+
+    .section-body p + p {
+      margin-top: 0.4rem;
+    }
+
+    /* key-value rows */
+    .row {
+      display: grid;
+      grid-template-columns: 11ch 1fr;
+      gap: 0 1ch;
+    }
+
+    .row-key {
+      color: #666;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .row-val {
+      color: #1a1a1a;
+    }
+
+    .row + .row { margin-top: 0.15rem; }
+
+    /* links */
+    a {
+      color: #1a1a1a;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    a:hover { color: #555; }
+
+    /* code block */
+    pre {
+      font-family: inherit;
+      white-space: pre;
+      line-height: 1.5;
+      color: #1a1a1a;
+      background: #ddd9d3;
+      padding: 0.75rem;
+    }
+
+    /* footer */
+    .footer {
+      margin-top: 1.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #1a1a1a;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+    <div class="header">
+      <h1>sap</h1>
+      <div class="sub"><a href="https://github.com/kevherro/sap">github.com/kevherro/sap</a></div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <div class="section-label">About</div>
+        <div class="section-body">
+          <p>
+            A <a href="https://github.com/nvim-telescope/telescope.nvim">Telescope</a> picker
+            for your <a href="https://sapling-scm.com/">Sapling</a> stack.
+          </p>
+          <p>
+            Lists every file touched between the base of your stack and your
+            working copy &mdash; committed and uncommitted &mdash; so you can jump
+            back to anything you've been working on.
+          </p>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Requirements</div>
+        <div class="section-body">
+          <div class="row">
+            <span class="row-key">neovim</span>
+            <span class="row-val"><a href="https://github.com/neovim/neovim/releases">v0.11.4+</a></span>
+          </div>
+          <div class="row">
+            <span class="row-key">plugin</span>
+            <span class="row-val"><a href="https://github.com/nvim-telescope/telescope.nvim">telescope.nvim</a></span>
+          </div>
+          <div class="row">
+            <span class="row-key">scm</span>
+            <span class="row-val"><a href="https://sapling-scm.com/">sl</a></span>
+          </div>
+          <div class="row">
+            <span class="row-key">preview</span>
+            <span class="row-val"><a href="https://github.com/sharkdp/bat">bat</a></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Install</div>
+        <div class="section-body">
+          <pre>{
+  'kevherro/sap',
+  dependencies = { 'nvim-telescope/telescope.nvim' },
+  config = function()
+    require('telescope').load_extension('sap')
+  end,
+  keys = {
+    { '&lt;leader&gt;fc', '&lt;cmd&gt;Telescope sap&lt;cr&gt;' },
+  },
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>MIT License</span>
+      <span>Kevin Herro</span>
+    </div>
+  </div>
+
+</body>
+</html>

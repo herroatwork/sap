@@ -53,7 +53,7 @@ local function sl_changed(opts)
 
 	pickers
 		.new(opts, {
-			prompt_title = 'sl stack',
+			prompt_title = 'sap',
 			finder = finders.new_table({
 				results = entries,
 				entry_maker = function(e)
