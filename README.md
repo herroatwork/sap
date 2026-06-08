@@ -11,7 +11,6 @@ been working on in this branch.
 - [NVIM `v0.11.4`+](https://github.com/neovim/neovim/releases)
 - [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 - [`sl`](https://sapling-scm.com/) on your `PATH`
-- [`bat`](https://github.com/sharkdp/bat) (used to preview untracked files)
 
 ## Installation
 
@@ -51,6 +50,9 @@ which lists every file that differs between the base of your stack
 (the most recent public ancestor of `.`) and your working copy —
 so files you committed earlier in the stack show up alongside uncommitted edits.
 If your stack is empty the revset resolves to `.` and you get plain `sl status` behavior.
+If nothing has changed you get a `no changes in this stack (working copy clean)` notice
+(rather than an empty picker); if `sl` itself fails — e.g. you're not inside a repository —
+its error is surfaced instead.
 
 Each entry is shown with a status sign and the directory dimmed:
 
@@ -68,9 +70,11 @@ Each entry is shown with a status sign and the directory dimmed:
 | `-`  | removed / missing |
 | `?`  | untracked   |
 
-`<CR>` opens the selected file. Tracked files are previewed with `sl diff --rev 'max(public() & ::.)'`
-(so you see the full cumulative diff against the stack base,
-not just the working-copy delta); untracked files are previewed with `bat`.
+`<CR>` opens the selected file. Tracked files are previewed as `sl diff --rev 'max(public() & ::.)'`
+(so you see the full cumulative diff against the stack base, not just the working-copy delta),
+with added/removed lines highlighted via your `DiffAdd`/`DiffDelete` colors; untracked files are
+previewed as their own contents, syntax-highlighted by your editor (treesitter/syntax) — no
+external pager required.
 
 ### Optional: diff highlight palette
 
@@ -84,6 +88,21 @@ vim.api.nvim_set_hl(0, 'DiffDelete', { fg = '#8b2e2e' })
 vim.api.nvim_set_hl(0, 'DiffChange', { fg = '#e3b341', italic = true })
 vim.api.nvim_set_hl(0, 'Comment',    { fg = '#6e7681' })
 ```
+
+## Development
+
+Tests use [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)'s busted
+harness. From the repo root:
+
+```sh
+nvim --headless -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua'}"
+```
+
+`tests/minimal_init.lua` expects `plenary.nvim` (and `telescope.nvim`, for the
+load smoke test) under `stdpath('data')/lazy` — the default for lazy.nvim users.
+Formatting is enforced with [stylua](https://github.com/JohnnyMorganz/StyLua)
+(`stylua --check lua/ tests/`).
 
 ## License
 
