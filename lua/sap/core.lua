@@ -99,6 +99,21 @@ function M.diff_command(path, rev)
 	return cmd
 end
 
+-- cap a list of lines to `max`, appending a marker line that counts the rest.
+-- keeps a pathological (generated/lockfile) diff from making a preview janky --
+-- only the top of a diff is visible in a preview pane anyway.
+function M.cap(lines, max)
+	if #lines <= max then
+		return lines
+	end
+	local out = {}
+	for i = 1, max do
+		out[i] = lines[i]
+	end
+	out[max + 1] = ('… %d more lines (diff truncated)'):format(#lines - max)
+	return out
+end
+
 -- classify each line of a unified diff, returning a list of
 -- { line = <0-indexed row>, kind = 'header'|'hunk'|'add'|'del' }. context-aware
 -- so that, e.g., a removed `-- comment` line (which reads as `--- comment`) is

@@ -4,11 +4,19 @@ local conf = require('telescope.config').values
 local actions = require('telescope.actions')
 local action_state = require('telescope.actions.state')
 local previewers = require('telescope.previewers')
+local putils = require('telescope.previewers.utils')
 local core = require('sap.core')
 
 local sap_ns = vim.api.nvim_create_namespace('sap_diff')
 
 local KIND_HL = { add = 'SapDiffAdd', del = 'SapDiffDelete', hunk = 'SapDiffChange', header = 'Comment' }
+
+-- how long to wait for the cursor to settle before spawning `sl diff` for the
+-- previewed entry, so flying through the list never spawns a process per entry.
+local PREVIEW_DEBOUNCE_MS = 50
+-- cap diff rendering; a giant generated/lockfile diff shouldn't make a single
+-- preview janky (only the top is visible in a preview pane anyway).
+local MAX_PREVIEW_LINES = 2000
 
 -- pull the diff *color* from the colorscheme but apply it as a foreground only,
 -- so the preview shows colored text (like `git`/`sl diff` in a terminal) rather
@@ -48,53 +56,48 @@ local function setup_diff_hl()
 	)
 end
 
+-- derive diff colors once now (and again on every colorscheme change) instead of
+-- recomputing them on the latency-critical path of every picker open.
+setup_diff_hl()
+vim.api.nvim_create_autocmd('ColorScheme', {
+	group = vim.api.nvim_create_augroup('sap_diff_hl', { clear = true }),
+	callback = setup_diff_hl,
+})
+
 local function sl_root(cwd)
 	local res = vim.system({ 'sl', 'root' }, { text = true, cwd = cwd }):wait()
 	return (res.code == 0) and vim.trim(res.stdout or '') or nil
 end
 
-local function sl_changed(opts)
-	opts = opts or {}
-
-	-- anchor every sl call to the current file's directory (falling back to the
-	-- editor cwd) so the picker shows the stack of the repo you're working in,
-	-- regardless of nvim's global cwd.
-	local cwd = vim.fn.expand('%:p:h')
-	if cwd == '' then
-		cwd = vim.fn.getcwd()
+-- render an `sl diff` result into a preview buffer: a failure as a plain message
+-- (not run through the diff highlighter), success as our foreground-only diff
+-- highlights, capped for huge diffs. returns true once content was rendered.
+local function render_diff(bufnr, winid, res)
+	if not vim.api.nvim_buf_is_valid(bufnr) then
+		return false
 	end
-
-	-- vim.system keeps stdout and stderr separate, so a real failure can be
-	-- reported with sl's actual abort message instead of a generic one.
-	local rev = core.STACK_BASE
-	local res = vim.system(core.status_command(rev), { text = true, cwd = cwd }):wait()
-	-- a repo with no public ancestor (fresh, nothing pushed) makes the stack-base
-	-- revset empty and sl aborts; retry without --rev so the picker still works
-	-- (and previews fall back to a plain working-copy diff via the same rev=nil).
 	if res.code ~= 0 then
-		local plain = vim.system(core.status_command(nil), { text = true, cwd = cwd }):wait()
-		if plain.code == 0 then
-			rev, res = nil, plain
-		end
+		local msg = (res.stderr and res.stderr ~= '' and res.stderr)
+			or ('sl diff failed (exit ' .. tostring(res.code) .. ')')
+		putils.set_preview_message(bufnr, winid, vim.trim(msg))
+		return false
 	end
-
-	local stdout = vim.split(res.stdout or '', '\n', { trimempty = true })
-	local stderr = vim.split(res.stderr or '', '\n', { trimempty = true })
-	-- only resolve the repo root on success; on failure `sl root` would just
-	-- error too, and classify() doesn't need it for the error path.
-	local root = (res.code == 0) and sl_root(cwd) or nil
-	local result = core.classify(stdout, stderr, res.code, root)
-
-	if result.kind == 'error' then
-		vim.notify('sap: ' .. result.msg, vim.log.levels.ERROR)
-		return
-	elseif result.kind == 'empty' then
-		vim.notify('sap: ' .. result.msg, vim.log.levels.INFO)
-		return
+	local lines = core.cap(vim.split(res.stdout or '', '\n', { trimempty = true }), MAX_PREVIEW_LINES)
+	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+	vim.api.nvim_buf_clear_namespace(bufnr, sap_ns, 0, -1)
+	for _, h in ipairs(core.diff_highlights(lines)) do
+		vim.api.nvim_buf_set_extmark(bufnr, sap_ns, h.line, 0, {
+			end_row = h.line + 1,
+			end_col = 0,
+			hl_group = KIND_HL[h.kind],
+		})
 	end
+	return true
+end
 
-	local entries = result.entries
-	setup_diff_hl() -- (re)derive diff colors from the current colorscheme
+local function open_picker(opts, cwd, rev, entries)
+	local loaded = {} -- path -> true once its preview buffer is populated
+	local token = 0 -- bumped on every selection; invalidates stale debounced spawns
 
 	pickers
 		.new(opts, {
@@ -126,17 +129,19 @@ local function sl_changed(opts)
 			sorter = conf.generic_sorter(opts),
 			previewer = previewers.new_buffer_previewer({
 				title = 'sap preview',
-				-- one preview buffer per file (keyed by path); combined with the
-				-- cache guard in define_preview, `sl diff` runs once per file.
+				-- one preview buffer per file (keyed by path); the `loaded` guard
+				-- below makes `sl diff` run once per file, not on every revisit.
 				get_buffer_by_name = function(_, entry)
 					return entry.value.path
 				end,
 				define_preview = function(self, entry)
-					-- telescope calls define_preview even on a cache hit (it just
-					-- sets state.bufname first); bail so we don't re-run `sl diff`
-					-- or re-read the file every time the cursor revisits an entry.
-					if self.state.bufname then
-						return
+					-- every selection change bumps the token, cancelling any diff
+					-- spawn still waiting out its debounce for a now-stale entry.
+					token = token + 1
+					local my_token = token
+					local key = entry.value.path
+					if loaded[key] then
+						return -- already populated; telescope shows the cached buffer
 					end
 					local bufnr = self.state.bufnr
 					if entry.value.status == '?' then
@@ -146,42 +151,30 @@ local function sl_changed(opts)
 							bufname = self.state.bufname,
 							winid = self.state.winid,
 						})
-					else
-						-- tracked: the cumulative diff against the stack base. run
-						-- async (anchored to the repo cwd) so navigating the list
-						-- never blocks the UI on sl's ~200ms per-command startup.
-						local winid = self.state.winid
+						loaded[key] = true
+						return
+					end
+					-- tracked: debounce, then run `sl diff` async (anchored to the
+					-- repo cwd) so neither scrolling nor sl's ~200ms startup blocks.
+					local winid = self.state.winid
+					vim.defer_fn(function()
+						if my_token ~= token then
+							return -- cursor moved on before the diff settled
+						end
+						if not vim.api.nvim_buf_is_valid(bufnr) then
+							return
+						end
 						vim.system(core.diff_command(entry.path, rev), { text = true, cwd = cwd }, function(res)
 							vim.schedule(function()
-								if not vim.api.nvim_buf_is_valid(bufnr) then
-									return
+								if my_token ~= token then
+									return -- moved on while sl was running
 								end
-								if res.code ~= 0 then
-									-- surface the failure plainly instead of feeding an
-									-- sl abort message through the diff highlighter.
-									local msg = (res.stderr and res.stderr ~= '' and res.stderr)
-										or ('sl diff failed (exit ' .. tostring(res.code) .. ')')
-									require('telescope.previewers.utils').set_preview_message(
-										bufnr,
-										winid,
-										vim.trim(msg)
-									)
-									return
-								end
-								local lines = vim.split(res.stdout or '', '\n', { trimempty = true })
-								vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-								-- apply our own foreground-only diff highlights (see setup_diff_hl).
-								vim.api.nvim_buf_clear_namespace(bufnr, sap_ns, 0, -1)
-								for _, h in ipairs(core.diff_highlights(lines)) do
-									vim.api.nvim_buf_set_extmark(bufnr, sap_ns, h.line, 0, {
-										end_row = h.line + 1,
-										end_col = 0,
-										hl_group = KIND_HL[h.kind],
-									})
+								if render_diff(bufnr, winid, res) then
+									loaded[key] = true
 								end
 							end)
 						end)
-					end
+					end, PREVIEW_DEBOUNCE_MS)
 				end,
 			}),
 			attach_mappings = function(_, map)
@@ -203,6 +196,49 @@ local function sl_changed(opts)
 			end,
 		})
 		:find()
+end
+
+local function sl_changed(opts)
+	opts = opts or {}
+
+	-- anchor every sl call to the current file's directory (falling back to the
+	-- editor cwd) so the picker shows the stack of the repo you're working in,
+	-- regardless of nvim's global cwd.
+	local cwd = vim.fn.expand('%:p:h')
+	if cwd == '' then
+		cwd = vim.fn.getcwd()
+	end
+
+	-- run status async so pressing the keymap never freezes the editor on sl's
+	-- ~200ms startup; the picker opens from the callback once status returns.
+	local rev = core.STACK_BASE
+	vim.system(core.status_command(rev), { text = true, cwd = cwd }, function(s)
+		vim.schedule(function()
+			-- a repo with no public ancestor (fresh, nothing pushed) makes the
+			-- stack-base revset empty and sl aborts; retry without --rev (rare).
+			if s.code ~= 0 then
+				local plain = vim.system(core.status_command(nil), { text = true, cwd = cwd }):wait()
+				if plain.code == 0 then
+					rev, s = nil, plain
+				end
+			end
+
+			local stdout = vim.split(s.stdout or '', '\n', { trimempty = true })
+			local stderr = vim.split(s.stderr or '', '\n', { trimempty = true })
+			local root = (s.code == 0) and sl_root(cwd) or nil
+			local result = core.classify(stdout, stderr, s.code, root)
+
+			if result.kind == 'error' then
+				vim.notify('sap: ' .. result.msg, vim.log.levels.ERROR)
+				return
+			elseif result.kind == 'empty' then
+				vim.notify('sap: ' .. result.msg, vim.log.levels.INFO)
+				return
+			end
+
+			open_picker(opts, cwd, rev, result.entries)
+		end)
+	end)
 end
 
 return { sl_changed = sl_changed }

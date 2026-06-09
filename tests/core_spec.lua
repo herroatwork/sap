@@ -107,6 +107,21 @@ describe('core.diff_command', function()
 	end)
 end)
 
+describe('core.cap', function()
+	it('returns the lines unchanged when at or under the cap', function()
+		assert.are.same({ 'a', 'b', 'c' }, core.cap({ 'a', 'b', 'c' }, 5))
+		assert.are.same({ 'a', 'b' }, core.cap({ 'a', 'b' }, 2))
+	end)
+
+	it('truncates to the cap and appends a marker counting the rest', function()
+		local out = core.cap({ '1', '2', '3', '4', '5' }, 2)
+		assert.are.equal(3, #out) -- 2 kept + 1 marker
+		assert.are.equal('1', out[1])
+		assert.are.equal('2', out[2])
+		assert.is_truthy(out[3]:find('3 more', 1, true))
+	end)
+end)
+
 describe('core.diff_highlights', function()
 	local function by_line(lines)
 		local m = {}
