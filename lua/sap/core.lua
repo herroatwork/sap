@@ -4,8 +4,10 @@
 local M = {}
 
 -- base of the current stack: the most recent public ancestor of `.`.
--- if there are no draft commits in the stack this resolves to `.` itself,
--- so `sl status --rev STACK_BASE` degrades to plain `sl status`.
+-- if there are draft commits but no public ancestor at all (e.g. a brand-new
+-- repo before anything is pushed) this revset is empty and sl aborts; the caller
+-- detects that and retries the commands with no --rev (plain `sl status`/`sl
+-- diff`), which is why status_command/diff_command take an optional revset.
 M.STACK_BASE = 'max(public() & ::.)'
 
 M.sign_map = {
@@ -22,6 +24,7 @@ M.sign_map = {
 function M.parse(lines, root)
 	local out = {}
 	for _, line in ipairs(lines) do
+		line = (line:gsub('\r$', '')) -- tolerate CRLF output
 		local st, path = line:match('^(%S)%s+(.+)$')
 		if path then
 			table.insert(out, {
@@ -69,14 +72,31 @@ function M.sign(status)
 	return ' ', 'Normal'
 end
 
--- `sl diff` for a tracked file: the cumulative diff against the stack base.
--- no --color, on purpose — we render the diff into a plain buffer and apply our
--- own highlights (see diff_highlights), which uses the colorscheme's vivid
--- DiffAdd/DiffDelete groups rather than relying on its (often washed-out)
--- treesitter diff palette. (untracked files have nothing to diff against and
--- are previewed as their own contents instead.)
-function M.diff_command(path)
-	return { 'sl', 'diff', '--rev', M.STACK_BASE, path }
+-- `sl status` listing changed files. `rev` (e.g. STACK_BASE) is optional so the
+-- caller can fall back to a plain status when the stack-base revset is empty.
+function M.status_command(rev)
+	local cmd = { 'sl', 'status', '-mardu' }
+	if rev then
+		cmd[#cmd + 1] = '--rev'
+		cmd[#cmd + 1] = rev
+	end
+	return cmd
+end
+
+-- `sl diff` for a tracked file: the cumulative diff against `rev` (the stack
+-- base), or the working-copy diff when `rev` is nil. no --color, on purpose —
+-- we render the diff into a plain buffer and apply our own highlights (see
+-- diff_highlights), using the colorscheme's vivid DiffAdd/DiffDelete groups
+-- rather than its (often washed-out) treesitter diff palette. (untracked files
+-- have nothing to diff against and are previewed as their own contents instead.)
+function M.diff_command(path, rev)
+	local cmd = { 'sl', 'diff' }
+	if rev then
+		cmd[#cmd + 1] = '--rev'
+		cmd[#cmd + 1] = rev
+	end
+	cmd[#cmd + 1] = path
+	return cmd
 end
 
 -- classify each line of a unified diff, returning a list of

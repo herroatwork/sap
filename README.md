@@ -50,6 +50,8 @@ which lists every file that differs between the base of your stack
 (the most recent public ancestor of `.`) and your working copy —
 so files you committed earlier in the stack show up alongside uncommitted edits.
 If your stack is empty the revset resolves to `.` and you get plain `sl status` behavior.
+If there's no public ancestor at all (e.g. a brand-new repo before anything is pushed),
+the revset is empty, so `sap` falls back to a plain `sl status` / `sl diff` automatically.
 If nothing has changed you get a `no changes in this stack (working copy clean)` notice
 (rather than an empty picker); if `sl` itself fails — e.g. you're not inside a repository —
 its error is surfaced instead.

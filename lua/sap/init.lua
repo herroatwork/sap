@@ -48,22 +48,41 @@ local function setup_diff_hl()
 	)
 end
 
-local function sl_root()
-	local r = vim.fn.systemlist('sl root')[1]
-	return (vim.v.shell_error == 0) and r or nil
+local function sl_root(cwd)
+	local res = vim.system({ 'sl', 'root' }, { text = true, cwd = cwd }):wait()
+	return (res.code == 0) and vim.trim(res.stdout or '') or nil
 end
 
 local function sl_changed(opts)
 	opts = opts or {}
 
+	-- anchor every sl call to the current file's directory (falling back to the
+	-- editor cwd) so the picker shows the stack of the repo you're working in,
+	-- regardless of nvim's global cwd.
+	local cwd = vim.fn.expand('%:p:h')
+	if cwd == '' then
+		cwd = vim.fn.getcwd()
+	end
+
 	-- vim.system keeps stdout and stderr separate, so a real failure can be
 	-- reported with sl's actual abort message instead of a generic one.
-	local res = vim.system({ 'sl', 'status', '-mardu', '--rev', core.STACK_BASE }, { text = true }):wait()
+	local rev = core.STACK_BASE
+	local res = vim.system(core.status_command(rev), { text = true, cwd = cwd }):wait()
+	-- a repo with no public ancestor (fresh, nothing pushed) makes the stack-base
+	-- revset empty and sl aborts; retry without --rev so the picker still works
+	-- (and previews fall back to a plain working-copy diff via the same rev=nil).
+	if res.code ~= 0 then
+		local plain = vim.system(core.status_command(nil), { text = true, cwd = cwd }):wait()
+		if plain.code == 0 then
+			rev, res = nil, plain
+		end
+	end
+
 	local stdout = vim.split(res.stdout or '', '\n', { trimempty = true })
 	local stderr = vim.split(res.stderr or '', '\n', { trimempty = true })
 	-- only resolve the repo root on success; on failure `sl root` would just
 	-- error too, and classify() doesn't need it for the error path.
-	local root = (res.code == 0) and sl_root() or nil
+	local root = (res.code == 0) and sl_root(cwd) or nil
 	local result = core.classify(stdout, stderr, res.code, root)
 
 	if result.kind == 'error' then
@@ -107,12 +126,18 @@ local function sl_changed(opts)
 			sorter = conf.generic_sorter(opts),
 			previewer = previewers.new_buffer_previewer({
 				title = 'sap preview',
-				-- cache one preview buffer per file so we don't re-run `sl diff`
-				-- every time the cursor revisits an entry.
+				-- one preview buffer per file (keyed by path); combined with the
+				-- cache guard in define_preview, `sl diff` runs once per file.
 				get_buffer_by_name = function(_, entry)
 					return entry.value.path
 				end,
 				define_preview = function(self, entry)
+					-- telescope calls define_preview even on a cache hit (it just
+					-- sets state.bufname first); bail so we don't re-run `sl diff`
+					-- or re-read the file every time the cursor revisits an entry.
+					if self.state.bufname then
+						return
+					end
 					local bufnr = self.state.bufnr
 					if entry.value.status == '?' then
 						-- untracked: nothing to diff against, so show the file
@@ -122,26 +147,30 @@ local function sl_changed(opts)
 							winid = self.state.winid,
 						})
 					else
-						-- tracked: the cumulative diff against the stack base,
-						-- colored by filetype=diff. run async so navigating the
-						-- list never blocks the UI on sl's ~200ms per-command
-						-- startup; get_buffer_by_name caches one buffer per file,
-						-- so this result lands in the right buffer regardless of
-						-- where the cursor has moved by the time sl returns.
-						vim.system(core.diff_command(entry.path), { text = true }, function(res)
+						-- tracked: the cumulative diff against the stack base. run
+						-- async (anchored to the repo cwd) so navigating the list
+						-- never blocks the UI on sl's ~200ms per-command startup.
+						local winid = self.state.winid
+						vim.system(core.diff_command(entry.path, rev), { text = true, cwd = cwd }, function(res)
 							vim.schedule(function()
 								if not vim.api.nvim_buf_is_valid(bufnr) then
 									return
 								end
-								local text = res.stdout
-								if (not text or text == '') and res.stderr and res.stderr ~= '' then
-									text = res.stderr
+								if res.code ~= 0 then
+									-- surface the failure plainly instead of feeding an
+									-- sl abort message through the diff highlighter.
+									local msg = (res.stderr and res.stderr ~= '' and res.stderr)
+										or ('sl diff failed (exit ' .. tostring(res.code) .. ')')
+									require('telescope.previewers.utils').set_preview_message(
+										bufnr,
+										winid,
+										vim.trim(msg)
+									)
+									return
 								end
-								local lines = vim.split(text or '', '\n', { trimempty = true })
+								local lines = vim.split(res.stdout or '', '\n', { trimempty = true })
 								vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-								-- apply our own foreground-only diff highlights rather than
-								-- filetype=diff: treesitter's diff palette can be washed out,
-								-- and DiffAdd/DiffDelete applied directly paint solid bars.
+								-- apply our own foreground-only diff highlights (see setup_diff_hl).
 								vim.api.nvim_buf_clear_namespace(bufnr, sap_ns, 0, -1)
 								for _, h in ipairs(core.diff_highlights(lines)) do
 									vim.api.nvim_buf_set_extmark(bufnr, sap_ns, h.line, 0, {
@@ -156,9 +185,18 @@ local function sl_changed(opts)
 				end,
 			}),
 			attach_mappings = function(_, map)
-				actions.select_default:replace(function(bufnr)
+				actions.select_default:replace(function(prompt_bufnr)
 					local sel = action_state.get_selected_entry()
-					actions.close(bufnr)
+					if vim.fn.filereadable(sel.path) == 0 then
+						-- removed/missing in this stack: don't `:edit` it into a
+						-- phantom [New File] that could recreate the file on save.
+						vim.notify(
+							'sap: ' .. sel.value.path .. ' is not on disk (removed in this stack)',
+							vim.log.levels.WARN
+						)
+						return
+					end
+					actions.close(prompt_bufnr)
 					vim.cmd('edit ' .. vim.fn.fnameescape(sel.path))
 				end)
 				return true

@@ -21,6 +21,17 @@ describe('core.parse', function()
 		local entries = core.parse({ '', 'garbage-without-space' }, '/repo')
 		assert.are.equal(0, #entries)
 	end)
+
+	it('strips a trailing carriage return from CRLF output', function()
+		local entries = core.parse({ 'M lua/sap/init.lua\r' }, '/repo')
+		assert.are.equal('lua/sap/init.lua', entries[1].path)
+		assert.are.equal('/repo/lua/sap/init.lua', entries[1].abs)
+	end)
+
+	it('keeps spaces inside a path', function()
+		local entries = core.parse({ 'A my new file.txt' }, nil)
+		assert.are.equal('my new file.txt', entries[1].path)
+	end)
 end)
 
 describe('core.classify', function()
@@ -70,14 +81,27 @@ describe('core.sign', function()
 	end)
 end)
 
+describe('core.status_command', function()
+	it('includes --rev when a revset is given', function()
+		assert.are.same({ 'sl', 'status', '-mardu', '--rev', 'BASE' }, core.status_command('BASE'))
+	end)
+
+	it('omits --rev when none is given (plain status fallback)', function()
+		assert.are.same({ 'sl', 'status', '-mardu' }, core.status_command(nil))
+	end)
+end)
+
 describe('core.diff_command', function()
-	it('builds an sl diff for a path against the stack base', function()
-		local cmd = core.diff_command('/repo/a.lua')
-		assert.are.same({ 'sl', 'diff', '--rev', core.STACK_BASE, '/repo/a.lua' }, cmd)
+	it('includes --rev when a revset is given', function()
+		assert.are.same({ 'sl', 'diff', '--rev', 'BASE', '/repo/a.lua' }, core.diff_command('/repo/a.lua', 'BASE'))
+	end)
+
+	it('omits --rev when none is given (plain working-copy diff)', function()
+		assert.are.same({ 'sl', 'diff', '/repo/a.lua' }, core.diff_command('/repo/a.lua', nil))
 	end)
 
 	it('does not request ANSI color (we apply highlights ourselves)', function()
-		for _, arg in ipairs(core.diff_command('/repo/a.lua')) do
+		for _, arg in ipairs(core.diff_command('/repo/a.lua', 'BASE')) do
 			assert.is_falsy(arg:find('color', 1, true))
 		end
 	end)
