@@ -5,9 +5,14 @@ local core = require('sap.core')
 
 describe('core.parse', function()
 	it('parses status lines into entries with absolute paths', function()
-		local entries = core.parse({ 'M lua/sap/init.lua', '? scratch.txt' }, '/repo')
+		local entries =
+			core.parse({ 'M lua/sap/init.lua', '? scratch.txt' }, '/repo')
 		assert.are.same({
-			{ status = 'M', path = 'lua/sap/init.lua', abs = '/repo/lua/sap/init.lua' },
+			{
+				status = 'M',
+				path = 'lua/sap/init.lua',
+				abs = '/repo/lua/sap/init.lua',
+			},
 			{ status = '?', path = 'scratch.txt', abs = '/repo/scratch.txt' },
 		}, entries)
 	end)
@@ -37,16 +42,24 @@ end)
 describe('core.classify', function()
 	-- classify(stdout_lines, stderr_lines, exit_code, root)
 	it('surfaces the stderr message when the command exits non-zero', function()
-		local result = core.classify({}, { 'abort: not inside a repository' }, 255, nil)
+		local result = core.classify(
+			{},
+			{ 'abort: not inside a repository' },
+			255,
+			nil
+		)
 		assert.are.equal('error', result.kind)
 		assert.is_truthy(result.msg:find('not inside a repository', 1, true))
 	end)
 
-	it('falls back to stdout for the error message when stderr is empty', function()
-		local result = core.classify({ 'something on stdout' }, {}, 1, nil)
-		assert.are.equal('error', result.kind)
-		assert.is_truthy(result.msg:find('something on stdout', 1, true))
-	end)
+	it(
+		'falls back to stdout for the error message when stderr is empty',
+		function()
+			local result = core.classify({ 'something on stdout' }, {}, 1, nil)
+			assert.are.equal('error', result.kind)
+			assert.is_truthy(result.msg:find('something on stdout', 1, true))
+		end
+	)
 
 	it('uses a generic message when a failing command is silent', function()
 		local result = core.classify({}, {}, 1, nil)
@@ -54,17 +67,28 @@ describe('core.classify', function()
 		assert.is_truthy(result.msg:find('1', 1, true))
 	end)
 
-	it('reports empty (not error) when the command succeeds with no changes', function()
-		local result = core.classify({}, {}, 0, '/repo')
-		assert.are.equal('empty', result.kind)
-		assert.is_truthy(result.msg and #result.msg > 0)
-	end)
+	it(
+		'reports empty (not error) when the command succeeds with no changes',
+		function()
+			local result = core.classify({}, {}, 0, '/repo')
+			assert.are.equal('empty', result.kind)
+			assert.is_truthy(result.msg and #result.msg > 0)
+		end
+	)
 
-	it('returns the parsed list (from stdout) when there are changes', function()
-		local result = core.classify({ 'M a.lua', '? b.lua' }, {}, 0, '/repo')
-		assert.are.equal('list', result.kind)
-		assert.are.equal(2, #result.entries)
-	end)
+	it(
+		'returns the parsed list (from stdout) when there are changes',
+		function()
+			local result = core.classify(
+				{ 'M a.lua', '? b.lua' },
+				{},
+				0,
+				'/repo'
+			)
+			assert.are.equal('list', result.kind)
+			assert.are.equal(2, #result.entries)
+		end
+	)
 end)
 
 describe('core.sign', function()
@@ -83,7 +107,10 @@ end)
 
 describe('core.status_command', function()
 	it('includes --rev when a revset is given', function()
-		assert.are.same({ 'sl', 'status', '-mardu', '--rev', 'BASE' }, core.status_command('BASE'))
+		assert.are.same(
+			{ 'sl', 'status', '-mardu', '--rev', 'BASE' },
+			core.status_command('BASE')
+		)
 	end)
 
 	it('omits --rev when none is given (plain status fallback)', function()
@@ -93,11 +120,17 @@ end)
 
 describe('core.diff_command', function()
 	it('includes --rev when a revset is given', function()
-		assert.are.same({ 'sl', 'diff', '--rev', 'BASE', '/repo/a.lua' }, core.diff_command('/repo/a.lua', 'BASE'))
+		assert.are.same(
+			{ 'sl', 'diff', '--rev', 'BASE', '/repo/a.lua' },
+			core.diff_command('/repo/a.lua', 'BASE')
+		)
 	end)
 
 	it('omits --rev when none is given (plain working-copy diff)', function()
-		assert.are.same({ 'sl', 'diff', '/repo/a.lua' }, core.diff_command('/repo/a.lua', nil))
+		assert.are.same(
+			{ 'sl', 'diff', '/repo/a.lua' },
+			core.diff_command('/repo/a.lua', nil)
+		)
 	end)
 
 	it('does not request ANSI color (we apply highlights ourselves)', function()
@@ -131,43 +164,52 @@ describe('core.diff_highlights', function()
 		return m
 	end
 
-	it('classifies headers, hunks, additions and removals; leaves context plain', function()
-		local m = by_line({
-			'diff --git a/f.lua b/f.lua', -- 0
-			'--- a/f.lua', -- 1
-			'+++ b/f.lua', -- 2
-			'@@ -1,2 +1,2 @@', -- 3
-			' context', -- 4
-			'-removed', -- 5
-			'+added', -- 6
-		})
-		assert.are.equal('header', m[0])
-		assert.are.equal('header', m[1])
-		assert.are.equal('header', m[2])
-		assert.are.equal('hunk', m[3])
-		assert.is_nil(m[4]) -- context lines stay Normal
-		assert.are.equal('del', m[5])
-		assert.are.equal('add', m[6])
-	end)
+	it(
+		'classifies headers, hunks, additions and removals; leaves context plain',
+		function()
+			local m = by_line({
+				'diff --git a/f.lua b/f.lua', -- 0
+				'--- a/f.lua', -- 1
+				'+++ b/f.lua', -- 2
+				'@@ -1,2 +1,2 @@', -- 3
+				' context', -- 4
+				'-removed', -- 5
+				'+added', -- 6
+			})
+			assert.are.equal('header', m[0])
+			assert.are.equal('header', m[1])
+			assert.are.equal('header', m[2])
+			assert.are.equal('hunk', m[3])
+			assert.is_nil(m[4]) -- context lines stay Normal
+			assert.are.equal('del', m[5])
+			assert.are.equal('add', m[6])
+		end
+	)
 
-	it('treats a removed comment as a deletion, not a --- file header', function()
-		-- deleting a `-- foo` line produces `--- foo`; inside a hunk that is a
-		-- removal, not a file header.
-		local m = by_line({ '@@ -1 +0,0 @@', '--- foo' })
-		assert.are.equal('del', m[1])
-	end)
+	it(
+		'treats a removed comment as a deletion, not a --- file header',
+		function()
+			-- deleting a `-- foo` line produces `--- foo`; inside a hunk that is a
+			-- removal, not a file header.
+			local m = by_line({ '@@ -1 +0,0 @@', '--- foo' })
+			assert.are.equal('del', m[1])
+		end
+	)
 
-	it('resets at the next file so its header is not classified as a removal', function()
-		local m = by_line({
-			'@@ -1 +1 @@', -- 0
-			'-old', -- 1
-			'diff --git a/g.lua b/g.lua', -- 2
-			'--- a/g.lua', -- 3
-			'+++ b/g.lua', -- 4
-		})
-		assert.are.equal('del', m[1])
-		assert.are.equal('header', m[2])
-		assert.are.equal('header', m[3])
-		assert.are.equal('header', m[4])
-	end)
+	it(
+		'resets at the next file so its header is not classified as a removal',
+		function()
+			local m = by_line({
+				'@@ -1 +1 @@', -- 0
+				'-old', -- 1
+				'diff --git a/g.lua b/g.lua', -- 2
+				'--- a/g.lua', -- 3
+				'+++ b/g.lua', -- 4
+			})
+			assert.are.equal('del', m[1])
+			assert.are.equal('header', m[2])
+			assert.are.equal('header', m[3])
+			assert.are.equal('header', m[4])
+		end
+	)
 end)

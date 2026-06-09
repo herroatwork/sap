@@ -58,7 +58,10 @@ function M.classify(stdout, stderr, code, root)
 	end
 	local entries = M.parse(stdout, root)
 	if #entries == 0 then
-		return { kind = 'empty', msg = 'no changes in this stack (working copy clean)' }
+		return {
+			kind = 'empty',
+			msg = 'no changes in this stack (working copy clean)',
+		}
 	end
 	return { kind = 'list', entries = entries }
 end

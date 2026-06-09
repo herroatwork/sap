@@ -9,7 +9,12 @@ local core = require('sap.core')
 
 local sap_ns = vim.api.nvim_create_namespace('sap_diff')
 
-local KIND_HL = { add = 'SapDiffAdd', del = 'SapDiffDelete', hunk = 'SapDiffChange', header = 'Comment' }
+local KIND_HL = {
+	add = 'SapDiffAdd',
+	del = 'SapDiffDelete',
+	hunk = 'SapDiffChange',
+	header = 'Comment',
+}
 
 -- how long to wait for the cursor to settle before spawning `sl diff` for the
 -- previewed entry, so flying through the list never spawns a process per entry.
@@ -43,16 +48,35 @@ local function setup_diff_hl()
 		end
 		return fallback
 	end
-	vim.api.nvim_set_hl(0, 'SapDiffAdd', { fg = pick({ 'DiffAdd', 'Added', 'diffAdded', '@diff.plus' }, 0x98c379) })
+	vim.api.nvim_set_hl(
+		0,
+		'SapDiffAdd',
+		{
+			fg = pick(
+				{ 'DiffAdd', 'Added', 'diffAdded', '@diff.plus' },
+				0x98c379
+			),
+		}
+	)
 	vim.api.nvim_set_hl(
 		0,
 		'SapDiffDelete',
-		{ fg = pick({ 'DiffDelete', 'Removed', 'diffRemoved', '@diff.minus' }, 0xe06c75) }
+		{
+			fg = pick(
+				{ 'DiffDelete', 'Removed', 'diffRemoved', '@diff.minus' },
+				0xe06c75
+			),
+		}
 	)
 	vim.api.nvim_set_hl(
 		0,
 		'SapDiffChange',
-		{ fg = pick({ 'DiffChange', 'Changed', 'diffChanged', '@diff.delta' }, 0x61afef) }
+		{
+			fg = pick(
+				{ 'DiffChange', 'Changed', 'diffChanged', '@diff.delta' },
+				0x61afef
+			),
+		}
 	)
 end
 
@@ -82,7 +106,10 @@ local function render_diff(bufnr, winid, res)
 		putils.set_preview_message(bufnr, winid, vim.trim(msg))
 		return false
 	end
-	local lines = core.cap(vim.split(res.stdout or '', '\n', { trimempty = true }), MAX_PREVIEW_LINES)
+	local lines = core.cap(
+		vim.split(res.stdout or '', '\n', { trimempty = true }),
+		MAX_PREVIEW_LINES
+	)
 	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 	vim.api.nvim_buf_clear_namespace(bufnr, sap_ns, 0, -1)
 	for _, h in ipairs(core.diff_highlights(lines)) do
@@ -112,7 +139,10 @@ local function open_picker(opts, cwd, rev, entries)
 						local highlights = { { { 1, 2 }, hl } }
 						if dir then
 							text = string.format(' %s %s%s', sign, dir, file)
-							table.insert(highlights, { { 3, 3 + #dir }, 'Comment' })
+							table.insert(
+								highlights,
+								{ { 3, 3 + #dir }, 'Comment' }
+							)
 						else
 							text = string.format(' %s %s', sign, e.path)
 						end
@@ -164,16 +194,20 @@ local function open_picker(opts, cwd, rev, entries)
 						if not vim.api.nvim_buf_is_valid(bufnr) then
 							return
 						end
-						vim.system(core.diff_command(entry.path, rev), { text = true, cwd = cwd }, function(res)
-							vim.schedule(function()
-								if my_token ~= token then
-									return -- moved on while sl was running
-								end
-								if render_diff(bufnr, winid, res) then
-									loaded[key] = true
-								end
-							end)
-						end)
+						vim.system(
+							core.diff_command(entry.path, rev),
+							{ text = true, cwd = cwd },
+							function(res)
+								vim.schedule(function()
+									if my_token ~= token then
+										return -- moved on while sl was running
+									end
+									if render_diff(bufnr, winid, res) then
+										loaded[key] = true
+									end
+								end)
+							end
+						)
 					end, PREVIEW_DEBOUNCE_MS)
 				end,
 			}),
@@ -184,7 +218,9 @@ local function open_picker(opts, cwd, rev, entries)
 						-- removed/missing in this stack: don't `:edit` it into a
 						-- phantom [New File] that could recreate the file on save.
 						vim.notify(
-							'sap: ' .. sel.value.path .. ' is not on disk (removed in this stack)',
+							'sap: '
+								.. sel.value.path
+								.. ' is not on disk (removed in this stack)',
 							vim.log.levels.WARN
 						)
 						return
@@ -217,7 +253,10 @@ local function sl_changed(opts)
 			-- a repo with no public ancestor (fresh, nothing pushed) makes the
 			-- stack-base revset empty and sl aborts; retry without --rev (rare).
 			if s.code ~= 0 then
-				local plain = vim.system(core.status_command(nil), { text = true, cwd = cwd }):wait()
+				local plain = vim.system(
+					core.status_command(nil),
+					{ text = true, cwd = cwd }
+				):wait()
 				if plain.code == 0 then
 					rev, s = nil, plain
 				end

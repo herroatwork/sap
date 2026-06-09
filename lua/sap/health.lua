@@ -6,13 +6,18 @@ local function check_neovim()
 	if vim.fn.has('nvim-0.11.4') == 1 then
 		vim.health.ok('Neovim >= 0.11.4')
 	else
-		vim.health.error('Neovim 0.11.4+ is required (uses vim.system and nvim_get_hl{ link = false })')
+		vim.health.error(
+			'Neovim 0.11.4+ is required (uses vim.system and nvim_get_hl{ link = false })'
+		)
 	end
 end
 
 local function check_sl()
 	if vim.fn.executable('sl') ~= 1 then
-		vim.health.error('`sl` not found on PATH', { 'Install Sapling: https://sapling-scm.com/' })
+		vim.health.error(
+			'`sl` not found on PATH',
+			{ 'Install Sapling: https://sapling-scm.com/' }
+		)
 		return
 	end
 	local res = vim.system({ 'sl', '--version' }, { text = true }):wait()
@@ -24,7 +29,10 @@ local function check_telescope()
 	if pcall(require, 'telescope') then
 		vim.health.ok('telescope.nvim is installed')
 	else
-		vim.health.error('telescope.nvim not found', { 'Install nvim-telescope/telescope.nvim' })
+		vim.health.error(
+			'telescope.nvim not found',
+			{ 'Install nvim-telescope/telescope.nvim' }
+		)
 	end
 end
 
@@ -34,9 +42,14 @@ local function check_repo()
 	end
 	local res = vim.system({ 'sl', 'root' }, { text = true }):wait()
 	if res.code == 0 then
-		vim.health.info('current directory is inside a Sapling repo: ' .. vim.trim(res.stdout or ''))
+		vim.health.info(
+			'current directory is inside a Sapling repo: '
+				.. vim.trim(res.stdout or '')
+		)
 	else
-		vim.health.info('current directory is not inside a Sapling repo (run the picker from within one)')
+		vim.health.info(
+			'current directory is not inside a Sapling repo (run the picker from within one)'
+		)
 	end
 end
 

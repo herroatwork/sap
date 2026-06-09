@@ -16,6 +16,9 @@ describe('sap', function()
 
 	it('exposes a health check (for :checkhealth sap and telescope)', function()
 		assert.are.equal('function', type(require('sap.health').check))
-		assert.are.equal('function', type(require('telescope._extensions.sap').health))
+		assert.are.equal(
+			'function',
+			type(require('telescope._extensions.sap').health)
+		)
 	end)
 end)
