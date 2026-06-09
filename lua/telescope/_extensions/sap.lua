@@ -14,6 +14,11 @@ return telescope.register_extension({
 		-- no options yet. ext_config would be the user's
 		-- `extensions = { sap = { ... } }` block from telescope.setup.
 	end,
+	-- `:checkhealth telescope` includes this; `:checkhealth sap` runs it too
+	-- via lua/sap/health.lua.
+	health = function()
+		require('sap.health').check()
+	end,
 	exports = {
 		-- primary picker: `:Telescope sap` (bare, matches extension name)
 		sap = sap.sl_changed,

@@ -1,0 +1,131 @@
+*sap.txt*                 A Telescope picker for your Sapling stack's files
+
+==============================================================================
+CONTENTS                                                          *sap-contents*
+
+  1. Introduction ........................................... |sap-introduction|
+  2. Requirements ........................................... |sap-requirements|
+  3. Installation ........................................... |sap-installation|
+  4. Usage .................................................. |sap-usage|
+  5. How it works ........................................... |sap-how-it-works|
+  6. Highlights ............................................. |sap-highlights|
+  7. Health ................................................. |sap-health|
+
+==============================================================================
+1. INTRODUCTION                                              *sap* *sap-introduction*
+
+sap is a |telescope| picker for the files in your current Sapling
+(https://sapling-scm.com/) stack. It lists every file touched between the base
+of your stack and your working copy — committed-in-stack and uncommitted — so
+you can jump back to anything you've been working on in this branch.
+
+==============================================================================
+2. REQUIREMENTS                                              *sap-requirements*
+
+  - Neovim v0.11.4+
+  - telescope.nvim
+  - `sl` (Sapling) on your `$PATH`
+
+Run |:checkhealth| sap to verify these (see |sap-health|).
+
+==============================================================================
+3. INSTALLATION                                              *sap-installation*
+
+sap is a telescope extension. With lazy.nvim: >lua
+
+    {
+      'kevherro/sap',
+      dependencies = { 'nvim-telescope/telescope.nvim' },
+      config = function()
+        require('telescope').load_extension('sap')
+      end,
+      keys = {
+        { '<leader>fc', '<cmd>Telescope sap<cr>', desc = 'sl stack' },
+      },
+    }
+<
+==============================================================================
+4. USAGE                                                            *sap-usage*
+
+Run one of: >
+
+    :Telescope sap
+    :Telescope sap stack
+<
+Both open the same picker. You can also call the function directly: >lua
+
+    require('sap').sl_changed()
+<
+                                                                 *sap-mappings*
+Inside the picker:
+
+  <CR>    open the selected file. If the file was removed in this stack and is
+          no longer on disk, sap warns instead of opening an empty buffer.
+
+Each entry shows a status sign with the directory dimmed: >
+
+    ~ lua/sap/init.lua
+    + lua/new_file.lua
+    - old_stuff.lua
+    ? scratch.txt
+<
+  Sign  Meaning ~
+  ~     modified
+  +     added
+  -     removed / missing
+  ?     untracked
+
+Tracked files are previewed as their cumulative `sl diff` against the stack
+base; untracked files are previewed as their own (syntax-highlighted) contents.
+Previews run asynchronously and are debounced, so navigating the list never
+blocks the editor.
+
+==============================================================================
+5. HOW IT WORKS                                              *sap-how-it-works*
+
+Under the hood the picker runs: >
+
+    sl status -mardu --rev 'max(public() & ::.)'
+<
+which lists every file that differs between the base of your stack (the most
+recent public ancestor of `.`) and your working copy. If your stack is empty
+the revset resolves to `.` and you get plain `sl status` behavior. If there is
+no public ancestor at all (e.g. a brand-new repo before anything is pushed),
+the revset is empty, so sap falls back to a plain `sl status` / `sl diff`
+automatically.
+
+If nothing has changed you get a "no changes in this stack" notice rather than
+an empty picker; if `sl` itself fails, its error is surfaced.
+
+All `sl` invocations are anchored to the current file's directory (falling back
+to the editor cwd), so the picker shows the stack of the repo you're working in
+regardless of Neovim's global working directory.
+
+==============================================================================
+6. HIGHLIGHTS                                                  *sap-highlights*
+
+Diff previews are colored with the foreground of your colorscheme's diff
+groups, preferring (in order) `DiffAdd`/`DiffDelete`/`DiffChange`, then
+`Added`/`Removed`/`Changed`, then the Tree-sitter `@diff.*` groups. The color
+is always applied as a foreground (never a background), so previews show
+colored text rather than full-line bars.
+
+To use the palette the author uses (tuned for color vision deficiency): >lua
+
+    vim.api.nvim_set_hl(0, 'DiffAdd',    { fg = '#7ee787', bold = true })
+    vim.api.nvim_set_hl(0, 'DiffDelete', { fg = '#8b2e2e' })
+    vim.api.nvim_set_hl(0, 'DiffChange', { fg = '#e3b341', italic = true })
+    vim.api.nvim_set_hl(0, 'Comment',    { fg = '#6e7681' })
+<
+==============================================================================
+7. HEALTH                                                          *sap-health*
+
+Run >
+
+    :checkhealth sap
+<
+to verify your Neovim version, that `sl` is on your `$PATH`, that telescope.nvim
+is installed, and whether the current directory is inside a Sapling repo.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:

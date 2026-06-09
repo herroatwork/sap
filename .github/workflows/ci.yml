@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  stylua:
+    name: stylua
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check lua/ tests/
+
+  test:
+    name: test (nvim ${{ matrix.nvim }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the README's minimum, plus the moving targets
+        nvim: [v0.11.4, stable, nightly]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.nvim }}
+      - name: Install test dependencies
+        run: |
+          data="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy"
+          mkdir -p "$data"
+          git clone --depth 1 https://github.com/nvim-lua/plenary.nvim "$data/plenary.nvim"
+          git clone --depth 1 https://github.com/nvim-telescope/telescope.nvim "$data/telescope.nvim"
+      - name: Run tests
+        run: |
+          nvim --headless -u tests/minimal_init.lua \
+            -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua'}"

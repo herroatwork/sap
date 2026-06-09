@@ -1,5 +1,7 @@
 # sap
 
+[![CI](https://github.com/kevherro/sap/actions/workflows/ci.yml/badge.svg)](https://github.com/kevherro/sap/actions/workflows/ci.yml)
+
 A [Telescope](https://github.com/nvim-telescope/telescope.nvim) picker for the
 files in your current [Sapling](https://sapling-scm.com/) stack.
 Lists every file touched between the base of your stack and your working copy —
@@ -11,6 +13,8 @@ been working on in this branch.
 - [NVIM `v0.11.4`+](https://github.com/neovim/neovim/releases)
 - [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 - [`sl`](https://sapling-scm.com/) on your `PATH`
+
+Run `:checkhealth sap` to verify your setup.
 
 ## Installation
 
@@ -104,7 +108,10 @@ nvim --headless -u tests/minimal_init.lua \
 `tests/minimal_init.lua` expects `plenary.nvim` (and `telescope.nvim`, for the
 load smoke test) under `stdpath('data')/lazy` — the default for lazy.nvim users.
 Formatting is enforced with [stylua](https://github.com/JohnnyMorganz/StyLua)
-(`stylua --check lua/ tests/`).
+(`stylua --check lua/ tests/`). Both run in CI across Neovim `v0.11.4`, stable,
+and nightly.
+
+In-editor help lives at `:help sap`.
 
 ## License
 
