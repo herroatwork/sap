@@ -21,4 +21,12 @@ describe('sap', function()
 			type(require('telescope._extensions.sap').health)
 		)
 	end)
+
+	it('exposes setup() that feeds sap.config', function()
+		local sap = require('sap')
+		assert.are.equal('function', type(sap.setup))
+		sap.setup({ revset = 'draft()' })
+		assert.are.equal('draft()', require('sap.config').options.revset)
+		sap.setup({}) -- reset so we don't leak into other specs
+	end)
 end)

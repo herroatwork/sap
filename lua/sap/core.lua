@@ -3,20 +3,12 @@
 
 local M = {}
 
--- base of the current stack: the most recent public ancestor of `.`.
--- if there are draft commits but no public ancestor at all (e.g. a brand-new
--- repo before anything is pushed) this revset is empty and sl aborts; the caller
--- detects that and retries the commands with no --rev (plain `sl status`/`sl
--- diff`), which is why status_command/diff_command take an optional revset.
-M.STACK_BASE = 'max(public() & ::.)'
-
-M.sign_map = {
-	M = { '~', 'DiffChange' },
-	A = { '+', 'DiffAdd' },
-	R = { '-', 'DiffDelete' },
-	['!'] = { '-', 'DiffDelete' },
-	['?'] = { '?', 'Comment' },
-}
+-- the revset default, the sign map, the sl binary and other user-facing
+-- defaults live in sap.config. the pure functions below take whatever they need
+-- as arguments (sl_bin, rev, sign_map) so they stay testable in isolation.
+-- the no-public-ancestor case (revset empty -> sl aborts) is handled by the
+-- caller retrying with rev=nil, which is why the command builders take an
+-- optional revset.
 
 -- turn `sl status` output lines into entries. `root` (from `sl root`) makes
 -- paths absolute so telescope can open them from any cwd; nil leaves them
@@ -66,19 +58,19 @@ function M.classify(stdout, stderr, code, root)
 	return { kind = 'list', entries = entries }
 end
 
--- sign + highlight group for a status code.
-function M.sign(status)
-	local s = M.sign_map[status]
+-- sign + highlight group for a status code, looked up in the given sign map.
+function M.sign(sign_map, status)
+	local s = sign_map[status]
 	if s then
 		return s[1], s[2]
 	end
 	return ' ', 'Normal'
 end
 
--- `sl status` listing changed files. `rev` (e.g. STACK_BASE) is optional so the
--- caller can fall back to a plain status when the stack-base revset is empty.
-function M.status_command(rev)
-	local cmd = { 'sl', 'status', '-mardu' }
+-- `sl status` listing changed files. `rev` is optional so the caller can fall
+-- back to a plain status when the stack-base revset is empty.
+function M.status_command(sl_bin, rev)
+	local cmd = { sl_bin, 'status', '-mardu' }
 	if rev then
 		cmd[#cmd + 1] = '--rev'
 		cmd[#cmd + 1] = rev
@@ -92,8 +84,8 @@ end
 -- diff_highlights), using the colorscheme's vivid DiffAdd/DiffDelete groups
 -- rather than its (often washed-out) treesitter diff palette. (untracked files
 -- have nothing to diff against and are previewed as their own contents instead.)
-function M.diff_command(path, rev)
-	local cmd = { 'sl', 'diff' }
+function M.diff_command(sl_bin, path, rev)
+	local cmd = { sl_bin, 'diff' }
 	if rev then
 		cmd[#cmd + 1] = '--rev'
 		cmd[#cmd + 1] = rev

@@ -10,9 +10,10 @@ end
 local sap = require('sap')
 
 return telescope.register_extension({
-	setup = function(_ext_config, _config)
-		-- no options yet. ext_config would be the user's
-		-- `extensions = { sap = { ... } }` block from telescope.setup.
+	-- the user's `extensions = { sap = { ... } }` block from telescope.setup;
+	-- equivalent to calling require('sap').setup(...) directly.
+	setup = function(ext_config, _config)
+		sap.setup(ext_config)
 	end,
 	-- `:checkhealth telescope` includes this; `:checkhealth sap` runs it too
 	-- via lua/sap/health.lua.

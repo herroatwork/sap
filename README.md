@@ -80,11 +80,56 @@ with added/removed lines highlighted via your `DiffAdd`/`DiffDelete` colors; unt
 previewed as their own contents, syntax-highlighted by your editor (treesitter/syntax) — no
 external pager required.
 
-### Optional: diff highlight palette
+## Configuration
 
-The picker uses the standard `DiffAdd` / `DiffChange` / `DiffDelete` / `Comment` highlight groups.
-If you want the palette the author uses (tuned for color vision deficiency),
-drop this in your config:
+`sap` works with no configuration. To customize, either call
+`require('sap').setup{}` (the natural spot is your lazy.nvim `config` function),
+or pass an `extensions.sap` block to `telescope.setup` — both feed the same
+options. Precedence: per-`:Telescope sap` opts > your config > the defaults.
+
+```lua
+require('sap').setup({
+  -- the `sl` binary (for nix / custom wrappers / installs not on $PATH)
+  sl_bin = 'sl',
+  -- the revset whose `max(...)` is the stack base ("what counts as the stack")
+  revset = 'max(public() & ::.)',
+  -- show the diff / file preview pane
+  preview = true,
+  -- status code -> { sign, highlight group }
+  signs = {
+    M = { '~', 'DiffChange' },
+    A = { '+', 'DiffAdd' },
+    R = { '-', 'DiffDelete' },
+    ['!'] = { '-', 'DiffDelete' },
+    ['?'] = { '?', 'Comment' },
+  },
+  -- explicit diff-preview colors; nil = derive from your colorscheme.
+  -- each may be a '#rrggbb' string or a number.
+  highlights = { add = nil, delete = nil, change = nil },
+  -- extra in-picker mappings; each value is a function(prompt_bufnr).
+  mappings = {
+    -- i = { ['<C-y>'] = function(prompt_bufnr) ... end },
+    -- n = {},
+  },
+})
+```
+
+The equivalent via telescope:
+
+```lua
+require('telescope').setup({ extensions = { sap = { revset = 'draft()' } } })
+require('telescope').load_extension('sap')
+```
+
+### Diff preview colors
+
+By default the preview derives its add/remove/change colors from your
+colorscheme's diff groups (preferring `DiffAdd`/`DiffDelete`/`DiffChange`, then
+`Added`/`Removed`/`Changed`, then the Tree-sitter `@diff.*` groups) and applies
+them as a **foreground** — so you get colored text, not full-line bars. To set
+them explicitly for `sap` only, use the `highlights` option above. To change
+your diff colors globally (the palette the author uses, tuned for color vision
+deficiency):
 
 ```lua
 vim.api.nvim_set_hl(0, 'DiffAdd',    { fg = '#7ee787', bold = true })

@@ -92,16 +92,24 @@ describe('core.classify', function()
 end)
 
 describe('core.sign', function()
+	local SIGNS = {
+		M = { '~', 'DiffChange' },
+		A = { '+', 'DiffAdd' },
+		R = { '-', 'DiffDelete' },
+		['!'] = { '-', 'DiffDelete' },
+		['?'] = { '?', 'Comment' },
+	}
+
 	it('maps each known status to its sign and highlight group', function()
-		assert.are.same({ '~', 'DiffChange' }, { core.sign('M') })
-		assert.are.same({ '+', 'DiffAdd' }, { core.sign('A') })
-		assert.are.same({ '-', 'DiffDelete' }, { core.sign('R') })
-		assert.are.same({ '-', 'DiffDelete' }, { core.sign('!') })
-		assert.are.same({ '?', 'Comment' }, { core.sign('?') })
+		assert.are.same({ '~', 'DiffChange' }, { core.sign(SIGNS, 'M') })
+		assert.are.same({ '+', 'DiffAdd' }, { core.sign(SIGNS, 'A') })
+		assert.are.same({ '-', 'DiffDelete' }, { core.sign(SIGNS, 'R') })
+		assert.are.same({ '-', 'DiffDelete' }, { core.sign(SIGNS, '!') })
+		assert.are.same({ '?', 'Comment' }, { core.sign(SIGNS, '?') })
 	end)
 
-	it('falls back to a blank sign for unknown statuses', function()
-		assert.are.same({ ' ', 'Normal' }, { core.sign('X') })
+	it('falls back to a blank sign for an unknown status', function()
+		assert.are.same({ ' ', 'Normal' }, { core.sign(SIGNS, 'X') })
 	end)
 end)
 
@@ -109,12 +117,19 @@ describe('core.status_command', function()
 	it('includes --rev when a revset is given', function()
 		assert.are.same(
 			{ 'sl', 'status', '-mardu', '--rev', 'BASE' },
-			core.status_command('BASE')
+			core.status_command('sl', 'BASE')
 		)
 	end)
 
 	it('omits --rev when none is given (plain status fallback)', function()
-		assert.are.same({ 'sl', 'status', '-mardu' }, core.status_command(nil))
+		assert.are.same(
+			{ 'sl', 'status', '-mardu' },
+			core.status_command('sl', nil)
+		)
+	end)
+
+	it('uses the configured sl binary', function()
+		assert.are.equal('/opt/sl', core.status_command('/opt/sl', nil)[1])
 	end)
 end)
 
@@ -122,19 +137,26 @@ describe('core.diff_command', function()
 	it('includes --rev when a revset is given', function()
 		assert.are.same(
 			{ 'sl', 'diff', '--rev', 'BASE', '/repo/a.lua' },
-			core.diff_command('/repo/a.lua', 'BASE')
+			core.diff_command('sl', '/repo/a.lua', 'BASE')
 		)
 	end)
 
 	it('omits --rev when none is given (plain working-copy diff)', function()
 		assert.are.same(
 			{ 'sl', 'diff', '/repo/a.lua' },
-			core.diff_command('/repo/a.lua', nil)
+			core.diff_command('sl', '/repo/a.lua', nil)
+		)
+	end)
+
+	it('uses the configured sl binary', function()
+		assert.are.equal(
+			'/opt/sl',
+			core.diff_command('/opt/sl', '/repo/a.lua', 'BASE')[1]
 		)
 	end)
 
 	it('does not request ANSI color (we apply highlights ourselves)', function()
-		for _, arg in ipairs(core.diff_command('/repo/a.lua', 'BASE')) do
+		for _, arg in ipairs(core.diff_command('sl', '/repo/a.lua', 'BASE')) do
 			assert.is_falsy(arg:find('color', 1, true))
 		end
 	end)

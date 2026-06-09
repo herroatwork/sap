@@ -7,9 +7,10 @@ CONTENTS                                                          *sap-contents*
   2. Requirements ........................................... |sap-requirements|
   3. Installation ........................................... |sap-installation|
   4. Usage .................................................. |sap-usage|
-  5. How it works ........................................... |sap-how-it-works|
-  6. Highlights ............................................. |sap-highlights|
-  7. Health ................................................. |sap-health|
+  5. Configuration .......................................... |sap-config|
+  6. How it works ........................................... |sap-how-it-works|
+  7. Highlights ............................................. |sap-highlights|
+  8. Health ................................................. |sap-health|
 
 ==============================================================================
 1. INTRODUCTION                                              *sap* *sap-introduction*
@@ -34,7 +35,7 @@ Run |:checkhealth| sap to verify these (see |sap-health|).
 sap is a telescope extension. With lazy.nvim: >lua
 
     {
-      'kevherro/sap',
+      'herroatwork/sap',
       dependencies = { 'nvim-telescope/telescope.nvim' },
       config = function()
         require('telescope').load_extension('sap')
@@ -81,7 +82,32 @@ Previews run asynchronously and are debounced, so navigating the list never
 blocks the editor.
 
 ==============================================================================
-5. HOW IT WORKS                                              *sap-how-it-works*
+5. CONFIGURATION                                                  *sap-config*
+
+sap works with no configuration. Call `require('sap').setup{}` (e.g. in your
+lazy.nvim `config` function) or pass an `extensions.sap` block to
+`telescope.setup` — both feed the same options. Precedence: per-`:Telescope
+sap` opts > your config > the defaults. Defaults: >lua
+
+    require('sap').setup({
+      sl_bin = 'sl',                    -- the `sl` binary
+      revset = 'max(public() & ::.)',   -- what counts as "the stack"
+      preview = true,                   -- show the preview pane
+      signs = {                         -- status -> { sign, highlight }
+        M = { '~', 'DiffChange' },
+        A = { '+', 'DiffAdd' },
+        R = { '-', 'DiffDelete' },
+        ['!'] = { '-', 'DiffDelete' },
+        ['?'] = { '?', 'Comment' },
+      },
+      highlights = { add = nil, delete = nil, change = nil }, -- '#rrggbb' or nil
+      mappings = {},                    -- { i = { lhs = fn }, n = { ... } }
+    })
+<
+See |sap-highlights| for how preview colors are chosen when not set explicitly.
+
+==============================================================================
+6. HOW IT WORKS                                              *sap-how-it-works*
 
 Under the hood the picker runs: >
 
@@ -102,7 +128,7 @@ to the editor cwd), so the picker shows the stack of the repo you're working in
 regardless of Neovim's global working directory.
 
 ==============================================================================
-6. HIGHLIGHTS                                                  *sap-highlights*
+7. HIGHLIGHTS                                                  *sap-highlights*
 
 Diff previews are colored with the foreground of your colorscheme's diff
 groups, preferring (in order) `DiffAdd`/`DiffDelete`/`DiffChange`, then
@@ -118,7 +144,7 @@ To use the palette the author uses (tuned for color vision deficiency): >lua
     vim.api.nvim_set_hl(0, 'Comment',    { fg = '#6e7681' })
 <
 ==============================================================================
-7. HEALTH                                                          *sap-health*
+8. HEALTH                                                          *sap-health*
 
 Run >
 
