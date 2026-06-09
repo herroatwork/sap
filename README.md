@@ -1,7 +1,5 @@
 # sap
 
-[![CI](https://github.com/kevherro/sap/actions/workflows/ci.yml/badge.svg)](https://github.com/kevherro/sap/actions/workflows/ci.yml)
-
 A [Telescope](https://github.com/nvim-telescope/telescope.nvim) picker for the
 files in your current [Sapling](https://sapling-scm.com/) stack.
 Lists every file touched between the base of your stack and your working copy —
@@ -23,7 +21,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  'kevherro/sap',
+  'herroatwork/sap',
   dependencies = { 'nvim-telescope/telescope.nvim' },
   config = function()
     require('telescope').load_extension('sap')
